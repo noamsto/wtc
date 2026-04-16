@@ -1,20 +1,28 @@
 # TODO
 
-## `wt clean -i` Explorer Improvements
+## Migration: Replace wt with Worktrunk
 
-### Checkmark spacing too dense
+Worktrunk (`github:max-sixty/worktrunk`) replaces the core worktree management
+(create/switch/list/remove/merge). The lazytmux bash `wt` and Go `wt` are retired.
 
-The list line packs `✓●` right next to each other with no breathing room.
-Current: `> ✓● branch-name [merged into main]`
-Fix: add a space between the checkmark and stale indicator columns.
+### What Worktrunk provides
+- Rich `wt list` with status, divergence, CI, LLM summaries
+- Hooks system (post-switch, post-start, post-remove) for tmux window lifecycle
+- Claude Code plugin with activity tracking (robot/speech markers)
+- Shell integration with auto-cd (no more `cd "$(wt -yqn ...)"`)
+- LLM commit messages, build cache sharing, PR checkout
+- Fish completions built-in
 
-### Expand mode for dirty worktrees
+### What needs a standalone tool: stale worktree cleanup
 
-When a worktree shows "3 dirty file(s)" in the preview, there's no way to see
-which files are dirty. Add an expand/collapse toggle (e.g. `e` or `enter`) that
-shows the actual dirty filenames inline.
+Extract the cleanup TUI into a standalone binary (e.g. `wt-clean` or `git-worktree-clean`):
+- 3-strategy stale detection (merged + remote deleted + GH squash-merged)
+- Interactive Bubble Tea TUI with search, select, bulk delete, preview
+- tmux window kill on remove
 
-This requires:
-- Storing dirty file names (not just count) in `git.Worktree`
-- Loading them lazily alongside `DirtyFiles` in `git.LoadDetails`
-- Rendering the file list in the preview pane when expanded
+#### TUI improvements to make during extraction
+- **Checkmark spacing too dense** — add space between `✓` and `●` columns
+- **Expand mode for dirty files** — `e`/`enter` toggles showing actual dirty filenames
+  - Store `DirtyFileNames []string` in Worktree (not just count)
+  - Load lazily in `LoadDetails`
+  - Render in preview pane when expanded
