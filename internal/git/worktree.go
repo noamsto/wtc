@@ -59,34 +59,6 @@ func ParseWorktreesPorcelain(output, repoRoot, defaultBranch string) []Worktree 
 	return worktrees
 }
 
-// ListWorktreesRaw returns raw `git worktree list` output (for `wt list` command).
-func ListWorktreesRaw(repoRoot string) (string, error) {
-	out, err := exec.Command("git", "-C", repoRoot, "worktree", "list").Output()
-	if err != nil {
-		return "", fmt.Errorf("git worktree list: %w", err)
-	}
-	return strings.TrimSpace(string(out)), nil
-}
-
-// CreateWorktree creates a new worktree. If createBranch is true, creates a new branch.
-// If trackRemote is true, tracks origin/<branch>.
-func CreateWorktree(repoRoot, branch, path string, createBranch, trackRemote bool) error {
-	var args []string
-	switch {
-	case createBranch:
-		args = []string{"-C", repoRoot, "worktree", "add", "-b", branch, path}
-	case trackRemote:
-		args = []string{"-C", repoRoot, "worktree", "add", "--track", "-b", branch, path, "origin/" + branch}
-	default:
-		args = []string{"-C", repoRoot, "worktree", "add", path, branch}
-	}
-	out, err := exec.Command("git", args...).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("%s", strings.TrimSpace(string(out)))
-	}
-	return nil
-}
-
 // RemoveWorktree removes a worktree by path. If force is true, uses --force.
 func RemoveWorktree(repoRoot, path string, force bool) error {
 	args := []string{"-C", repoRoot, "worktree", "remove"}
@@ -116,24 +88,3 @@ func FetchPrune(repoRoot string) error {
 	return cmd.Run()
 }
 
-// FindWorktreeByBranch returns the path of the worktree for the given branch, or empty string.
-func FindWorktreeByBranch(repoRoot, branch string) string {
-	out, err := exec.Command("git", "-C", repoRoot, "worktree", "list", "--porcelain").Output()
-	if err != nil {
-		return ""
-	}
-	var currentPath string
-	for line := range strings.SplitSeq(string(out), "\n") {
-		switch {
-		case strings.HasPrefix(line, "worktree "):
-			currentPath = strings.TrimPrefix(line, "worktree ")
-		case strings.HasPrefix(line, "branch refs/heads/"):
-			b := strings.TrimPrefix(line, "branch refs/heads/")
-			if b == branch {
-				return currentPath
-			}
-			currentPath = ""
-		}
-	}
-	return ""
-}
