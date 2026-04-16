@@ -539,9 +539,12 @@ func (m *model) renderWorktreeLine(i int, item listItem, width int) string {
 
 	line.WriteString(" ")
 
-	if wt.IsStale() {
+	switch {
+	case wt.IsStale():
 		line.WriteString(staleStyle.Render("●"))
-	} else {
+	case wt.DetailsLoaded && len(wt.DirtyFileNames) > 0:
+		line.WriteString(warnStyle.Render("+"))
+	default:
 		line.WriteString(" ")
 	}
 
