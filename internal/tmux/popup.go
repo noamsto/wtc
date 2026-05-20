@@ -3,12 +3,15 @@ package tmux
 import (
 	"os"
 	"os/exec"
-	"syscall"
 )
 
-// ReExecInPopup replaces the current process with `tmux display-popup -EE -d <cwd> <self> <args...>`.
-// It does not return on success. Callers should fall through to normal execution
-// when it returns a non-nil error (e.g. tmux not on PATH).
+// ReExecInPopup launches `tmux display-popup -EE -d <cwd> <self> <args...>` and
+// exits 0 when the popup closes cleanly. Callers should fall through to normal
+// execution when it returns a non-nil error (e.g. tmux not on PATH).
+//
+// Fork-and-wait rather than syscall.Exec: replacing the parent process leaves
+// the popup-side wtc with inherited state (fds, signal mask) that makes
+// bubbletea quit on startup.
 //
 // -EE keeps the popup open if the inner command exits non-zero, so any error
 // message stays on screen. -d pins the popup's cwd to our current cwd because
@@ -34,10 +37,21 @@ func ReExecInPopup(args ...string) error {
 	width := envOr("WTC_POPUP_WIDTH", "90%")
 	height := envOr("WTC_POPUP_HEIGHT", "90%")
 
-	popupArgs := []string{"tmux", "display-popup", "-EE", "-d", cwd, "-w", width, "-h", height, self}
+	popupArgs := []string{"display-popup", "-EE", "-d", cwd, "-w", width, "-h", height, self}
 	popupArgs = append(popupArgs, args...)
 
-	return syscall.Exec(tmuxPath, popupArgs, os.Environ())
+	cmd := exec.Command(tmuxPath, popupArgs...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			os.Exit(exitErr.ExitCode())
+		}
+		return err
+	}
+	os.Exit(0)
+	return nil
 }
 
 func envOr(key, fallback string) string {
