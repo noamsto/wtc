@@ -46,7 +46,7 @@ func (item listItem) isFile() bool {
 type model struct {
 	repoRoot     string
 	worktrees    []git.Worktree
-	tmuxClient *tmux.Client
+	tmuxClient   *tmux.Client
 	items        []listItem
 	cursor       int
 	selected     map[int]bool
@@ -122,15 +122,15 @@ type diffLoadedMsg struct {
 // Run launches the interactive TUI explorer.
 func Run(repoRoot string, worktrees []git.Worktree, tmuxClient *tmux.Client) error {
 	m := model{
-		repoRoot:  repoRoot,
-		worktrees: worktrees,
+		repoRoot:   repoRoot,
+		worktrees:  worktrees,
 		tmuxClient: tmuxClient,
-		selected:     make(map[int]bool),
-		expanded:     make(map[int]bool),
-		diffCache:    make(map[string]string),
-		preview:      viewport.New(),
-		keys:         defaultKeys(),
-		help:         help.New(),
+		selected:   make(map[int]bool),
+		expanded:   make(map[int]bool),
+		diffCache:  make(map[string]string),
+		preview:    viewport.New(),
+		keys:       defaultKeys(),
+		help:       help.New(),
 	}
 	m.rebuildItems()
 	m.recomputeStaleCount()
@@ -546,7 +546,7 @@ func (m *model) renderFull() string {
 	if m.searching {
 		b.WriteString(dimStyle.Render("type to filter  enter/esc accept  q clear+quit") + "\n")
 	} else {
-		b.WriteString(dimStyle.Render("j/k move  alt+j/k scroll  space sel  a toggle stale  e expand  d/D del  / search  q quit") + "\n")
+		b.WriteString(dimStyle.Render("j/k move  ctrl+j/k too  alt+j/k scroll  space sel  a stale  e expand  d/D del  / search  ? keys  q quit") + "\n")
 	}
 
 	if m.confirmMsg != "" {

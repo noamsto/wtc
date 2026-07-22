@@ -238,3 +238,14 @@ func TestHelpOverlayTogglesAndListsKeys(t *testing.T) {
 		t.Fatal("? should close the help overlay")
 	}
 }
+
+func TestFilterBarAlwaysVisibleAndFooterMentionsHelp(t *testing.T) {
+	m := newTestModel(t) // not searching, empty query
+	out := m.renderFull()
+	if !strings.Contains(out, "/ to search") {
+		t.Fatalf("blurred board should always show the search bar: %q", out)
+	}
+	if !strings.Contains(out, "?") {
+		t.Fatalf("footer should advertise the ? help key: %q", out)
+	}
+}
