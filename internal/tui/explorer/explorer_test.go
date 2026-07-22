@@ -206,3 +206,15 @@ func TestSearchCtrlCQuits(t *testing.T) {
 		t.Fatal("ctrl+c in search mode should quit")
 	}
 }
+
+func TestCtrlJKMovesCursor(t *testing.T) {
+	m := newTestModel(t)
+	m = drive(m, "ctrl+j")
+	if m.cursor != 1 {
+		t.Fatalf("ctrl+j should move cursor down, got %d", m.cursor)
+	}
+	m = drive(m, "ctrl+k")
+	if m.cursor != 0 {
+		t.Fatalf("ctrl+k should move cursor up, got %d", m.cursor)
+	}
+}
