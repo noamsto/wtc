@@ -54,6 +54,10 @@ func keyPress(s string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: 'j', Mod: tea.ModCtrl}
 	case "ctrl+k":
 		return tea.KeyPressMsg{Code: 'k', Mod: tea.ModCtrl}
+	case "alt+j":
+		return tea.KeyPressMsg{Code: 'j', Mod: tea.ModAlt}
+	case "alt+k":
+		return tea.KeyPressMsg{Code: 'k', Mod: tea.ModAlt}
 	case "f1":
 		return tea.KeyPressMsg{Code: tea.KeyF1}
 	default:
@@ -247,5 +251,28 @@ func TestFilterBarAlwaysVisibleAndFooterMentionsHelp(t *testing.T) {
 	}
 	if !strings.Contains(out, "?") {
 		t.Fatalf("footer should advertise the ? help key: %q", out)
+	}
+}
+
+func TestPreviewScroll(t *testing.T) {
+	m := newTestModel(t)
+	m.preview = viewport.New(viewport.WithWidth(40), viewport.WithHeight(5))
+	m.preview.SetContent(strings.Repeat("line\n", 20))
+
+	if m.preview.YOffset() != 0 {
+		t.Fatalf("expected initial preview offset 0, got %d", m.preview.YOffset())
+	}
+
+	m = drive(m, "alt+j")
+	if m.preview.YOffset() != 1 {
+		t.Fatalf("alt+j should scroll the preview down to offset 1, got %d", m.preview.YOffset())
+	}
+	if m.cursor != 0 {
+		t.Fatalf("alt+j should not move the list cursor, got %d", m.cursor)
+	}
+
+	m = drive(m, "alt+k")
+	if m.preview.YOffset() != 0 {
+		t.Fatalf("alt+k should scroll the preview back to offset 0, got %d", m.preview.YOffset())
 	}
 }

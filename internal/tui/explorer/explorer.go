@@ -502,6 +502,7 @@ func (m model) View() tea.View {
 func (m *model) renderFull() string {
 	if m.showHelp {
 		m.help.ShowAll = true
+		m.help.SetWidth(m.width)
 		return headerStyle.Render(" Keys") + "\n\n" + m.help.View(m.keys)
 	}
 
