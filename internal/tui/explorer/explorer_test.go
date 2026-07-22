@@ -1,0 +1,163 @@
+package explorer
+
+import (
+	"testing"
+
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+
+	"github.com/noamsto/wt/internal/git"
+)
+
+func newTestModel(t *testing.T) model {
+	t.Helper()
+	m := model{
+		repoRoot: "/r",
+		worktrees: []git.Worktree{
+			{Branch: "feat-a", Path: "/r/.worktrees/feat-a", DetailsLoaded: true},
+			{Branch: "feat-b", Path: "/r/.worktrees/feat-b", StaleReason: "merged", DetailsLoaded: true},
+			{Branch: "fix-c", Path: "/r/.worktrees/fix-c", DetailsLoaded: true},
+		},
+		selected:  map[int]bool{},
+		expanded:  map[int]bool{},
+		diffCache: map[string]string{},
+		preview:   viewport.New(),
+		width:     120,
+		height:    30,
+		ready:     true,
+	}
+	m.rebuildItems()
+	m.recomputeStaleCount()
+	return m
+}
+
+// keyPress builds a v2 key message; single runes carry Text, named keys use Code.
+func keyPress(s string) tea.KeyPressMsg {
+	switch s {
+	case "esc":
+		return tea.KeyPressMsg{Code: tea.KeyEscape}
+	case "enter":
+		return tea.KeyPressMsg{Code: tea.KeyEnter}
+	case "up":
+		return tea.KeyPressMsg{Code: tea.KeyUp}
+	case "down":
+		return tea.KeyPressMsg{Code: tea.KeyDown}
+	case "backspace":
+		return tea.KeyPressMsg{Code: tea.KeyBackspace}
+	case "ctrl+c":
+		return tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
+	case "ctrl+j":
+		return tea.KeyPressMsg{Code: 'j', Mod: tea.ModCtrl}
+	case "ctrl+k":
+		return tea.KeyPressMsg{Code: 'k', Mod: tea.ModCtrl}
+	case "f1":
+		return tea.KeyPressMsg{Code: tea.KeyF1}
+	default:
+		return tea.KeyPressMsg{Code: []rune(s)[0], Text: s}
+	}
+}
+
+func drive(m model, keys ...string) model {
+	for _, k := range keys {
+		u, _ := m.Update(keyPress(k))
+		m = u.(model)
+	}
+	return m
+}
+
+func TestNavMovesCursor(t *testing.T) {
+	m := newTestModel(t)
+	if m.cursor != 0 {
+		t.Fatalf("cursor starts at %d, want 0", m.cursor)
+	}
+	m = drive(m, "j")
+	if m.cursor != 1 {
+		t.Fatalf("j should move cursor to 1, got %d", m.cursor)
+	}
+	m = drive(m, "k")
+	if m.cursor != 0 {
+		t.Fatalf("k should move cursor to 0, got %d", m.cursor)
+	}
+}
+
+func TestSlashEntersSearchAndTypeFilters(t *testing.T) {
+	m := newTestModel(t)
+	m = drive(m, "/")
+	if !m.searching {
+		t.Fatal("/ should enter search mode")
+	}
+	m = drive(m, "f", "e", "a")
+	if m.query != "fea" {
+		t.Fatalf("typing should build query, got %q", m.query)
+	}
+	m = drive(m, "backspace")
+	if m.query != "fe" {
+		t.Fatalf("backspace should trim query, got %q", m.query)
+	}
+}
+
+func TestEscTwoStage(t *testing.T) {
+	m := newTestModel(t)
+	m = drive(m, "/", "f")
+	// stage 1: esc in search mode blurs but keeps the query
+	m = drive(m, "esc")
+	if m.searching {
+		t.Fatal("esc should leave search mode")
+	}
+	if m.query != "f" {
+		t.Fatalf("esc-blur must keep the query, got %q", m.query)
+	}
+	// stage 2: esc in normal mode with a query clears it, does not quit
+	u, cmd := m.Update(keyPress("esc"))
+	m = u.(model)
+	if m.query != "" {
+		t.Fatalf("normal esc should clear the query, got %q", m.query)
+	}
+	if cmd != nil {
+		t.Fatal("clearing the query must not quit")
+	}
+	// stage 3: esc with empty query quits
+	_, cmd = m.Update(keyPress("esc"))
+	if cmd == nil {
+		t.Fatal("esc on an empty query should quit")
+	}
+}
+
+func TestSpaceSelectsAndAStale(t *testing.T) {
+	m := newTestModel(t)
+	m = drive(m, "space")
+	if len(m.selected) != 1 {
+		t.Fatalf("space should select the cursor worktree, got %d selected", len(m.selected))
+	}
+	m = drive(m, "space")
+	if len(m.selected) != 0 {
+		t.Fatalf("space should toggle off, got %d selected", len(m.selected))
+	}
+	// 'a' with nothing selected selects all stale (feat-b is stale)
+	m = drive(m, "a")
+	if len(m.selected) != 1 {
+		t.Fatalf("a should select the 1 stale worktree, got %d", len(m.selected))
+	}
+}
+
+func TestDeleteOpensConfirm(t *testing.T) {
+	m := newTestModel(t)
+	m = drive(m, "d")
+	if m.confirmMsg == "" {
+		t.Fatal("d should open the delete confirm prompt")
+	}
+	// any non-y key cancels
+	u, _ := m.Update(keyPress("n"))
+	m = u.(model)
+	if m.confirmMsg != "" {
+		t.Fatal("a non-y key should dismiss the confirm prompt")
+	}
+}
+
+func TestCtrlCQuits(t *testing.T) {
+	m := newTestModel(t)
+	_, cmd := m.Update(keyPress("ctrl+c"))
+	if cmd == nil {
+		t.Fatal("ctrl+c should quit")
+	}
+}
