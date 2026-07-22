@@ -161,3 +161,48 @@ func TestCtrlCQuits(t *testing.T) {
 		t.Fatal("ctrl+c should quit")
 	}
 }
+
+func TestExpandToggles(t *testing.T) {
+	m := newTestModel(t)
+	wtIdx := m.items[m.cursor].wtIndex
+	m = drive(m, "e")
+	if !m.expanded[wtIdx] {
+		t.Fatal("e should expand the cursor worktree")
+	}
+	m = drive(m, "e")
+	if m.expanded[wtIdx] {
+		t.Fatal("e again should collapse the cursor worktree")
+	}
+}
+
+func TestForceDeleteOpensConfirm(t *testing.T) {
+	m := newTestModel(t)
+	m = drive(m, "D")
+	if m.confirmMsg == "" {
+		t.Fatal("D should open the delete confirm prompt")
+	}
+	if !m.confirmForce {
+		t.Fatal("D should set confirmForce")
+	}
+}
+
+func TestAClearsExistingSelection(t *testing.T) {
+	m := newTestModel(t)
+	m = drive(m, "space")
+	if len(m.selected) != 1 {
+		t.Fatalf("space should select the cursor worktree, got %d selected", len(m.selected))
+	}
+	m = drive(m, "a")
+	if len(m.selected) != 0 {
+		t.Fatalf("a should clear the existing selection, got %d selected", len(m.selected))
+	}
+}
+
+func TestSearchCtrlCQuits(t *testing.T) {
+	m := newTestModel(t)
+	m = drive(m, "/")
+	_, cmd := m.Update(keyPress("ctrl+c"))
+	if cmd == nil {
+		t.Fatal("ctrl+c in search mode should quit")
+	}
+}
