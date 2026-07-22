@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	tea "charm.land/bubbletea/v2"
+	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
 	"github.com/noamsto/wt/internal/git"
@@ -44,7 +46,7 @@ func (item listItem) isFile() bool {
 type model struct {
 	repoRoot     string
 	worktrees    []git.Worktree
-	tmuxClient *tmux.Client
+	tmuxClient   *tmux.Client
 	items        []listItem
 	cursor       int
 	selected     map[int]bool
@@ -60,6 +62,52 @@ type model struct {
 	confirmForce bool
 	statusMsg    string
 	staleCount   int
+	keys         keyMap
+	help         help.Model
+	showHelp     bool
+}
+
+type keyMap struct {
+	Up, Down               key.Binding
+	PreviewUp, PreviewDown key.Binding
+	Search                 key.Binding
+	Select, Stale, Expand  key.Binding
+	Delete, ForceDelete    key.Binding
+	Help, Quit, ForceQuit  key.Binding
+	Accept, Back           key.Binding
+}
+
+func defaultKeys() keyMap {
+	return keyMap{
+		Up:          key.NewBinding(key.WithKeys("up", "k", "ctrl+k"), key.WithHelp("↑/k", "up")),
+		Down:        key.NewBinding(key.WithKeys("down", "j", "ctrl+j"), key.WithHelp("↓/j", "down")),
+		PreviewUp:   key.NewBinding(key.WithKeys("alt+k"), key.WithHelp("alt+k", "scroll up")),
+		PreviewDown: key.NewBinding(key.WithKeys("alt+j"), key.WithHelp("alt+j", "scroll down")),
+		Search:      key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "search")),
+		Select:      key.NewBinding(key.WithKeys("space", " "), key.WithHelp("space", "select")),
+		Stale:       key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "toggle stale")),
+		Expand:      key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "expand")),
+		Delete:      key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "delete")),
+		ForceDelete: key.NewBinding(key.WithKeys("D"), key.WithHelp("D", "force delete")),
+		Help:        key.NewBinding(key.WithKeys("?", "f1"), key.WithHelp("?/F1", "keys")),
+		Quit:        key.NewBinding(key.WithKeys("q", "esc"), key.WithHelp("q", "quit")),
+		ForceQuit:   key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),
+		Accept:      key.NewBinding(key.WithKeys("enter", "esc"), key.WithHelp("enter/esc", "accept")),
+		Back:        key.NewBinding(key.WithKeys("backspace"), key.WithHelp("⌫", "delete char")),
+	}
+}
+
+func (k keyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.Up, k.Down, k.Search, k.Select, k.Delete, k.Help, k.Quit}
+}
+
+func (k keyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{k.Up, k.Down, k.PreviewUp, k.PreviewDown},
+		{k.Search, k.Select, k.Stale, k.Expand},
+		{k.Delete, k.ForceDelete},
+		{k.Help, k.Quit, k.ForceQuit},
+	}
 }
 
 type detailsLoadedMsg struct {
@@ -74,13 +122,15 @@ type diffLoadedMsg struct {
 // Run launches the interactive TUI explorer.
 func Run(repoRoot string, worktrees []git.Worktree, tmuxClient *tmux.Client) error {
 	m := model{
-		repoRoot:  repoRoot,
-		worktrees: worktrees,
+		repoRoot:   repoRoot,
+		worktrees:  worktrees,
 		tmuxClient: tmuxClient,
-		selected:     make(map[int]bool),
-		expanded:     make(map[int]bool),
-		diffCache:    make(map[string]string),
-		preview:      viewport.New(),
+		selected:   make(map[int]bool),
+		expanded:   make(map[int]bool),
+		diffCache:  make(map[string]string),
+		preview:    viewport.New(),
+		keys:       defaultKeys(),
+		help:       help.New(),
 	}
 	m.rebuildItems()
 	m.recomputeStaleCount()
@@ -133,6 +183,11 @@ func (m model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	if m.showHelp {
+		m.showHelp = false // any key closes the overlay
+		return m, nil
+	}
+
 	if m.searching {
 		return m.handleSearchKey(msg)
 	}
@@ -140,13 +195,13 @@ func (m model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) handleSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "ctrl+c":
+	switch {
+	case key.Matches(msg, m.keys.ForceQuit):
 		return m, tea.Quit
-	case "esc", "enter":
+	case key.Matches(msg, m.keys.Accept): // enter/esc: blur, keep the query
 		m.searching = false
 		return m, nil
-	case "backspace":
+	case key.Matches(msg, m.keys.Back):
 		if len(m.query) > 0 {
 			m.query = m.query[:len(m.query)-1]
 			m.rebuildItems()
@@ -154,9 +209,9 @@ func (m model) handleSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	default:
-		key := msg.Key()
-		if key.Text != "" && key.Mod == 0 {
-			m.query += key.Text
+		k := msg.Key()
+		if k.Text != "" && k.Mod == 0 {
+			m.query += k.Text
 			m.rebuildItems()
 			return m, m.ensureLoaded()
 		}
@@ -165,30 +220,33 @@ func (m model) handleSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) handleNormalKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "ctrl+c":
+	switch {
+	case key.Matches(msg, m.keys.ForceQuit):
 		return m, tea.Quit
-	case "q", "esc":
+	case key.Matches(msg, m.keys.Quit): // q/esc: clear query if present, else quit
 		if m.query != "" {
 			m.query = ""
 			m.rebuildItems()
 			return m, m.ensureLoaded()
 		}
 		return m, tea.Quit
-	case "/":
+	case key.Matches(msg, m.keys.Help):
+		m.showHelp = true
+		return m, nil
+	case key.Matches(msg, m.keys.Search):
 		m.searching = true
 		return m, nil
-	case "up", "k":
+	case key.Matches(msg, m.keys.Up):
 		return m, m.moveCursor(-1)
-	case "down", "j":
+	case key.Matches(msg, m.keys.Down):
 		return m, m.moveCursor(1)
-	case "alt+k":
+	case key.Matches(msg, m.keys.PreviewUp):
 		m.preview.ScrollUp(1)
 		return m, nil
-	case "alt+j":
+	case key.Matches(msg, m.keys.PreviewDown):
 		m.preview.ScrollDown(1)
 		return m, nil
-	case "space", " ":
+	case key.Matches(msg, m.keys.Select):
 		if len(m.items) > 0 {
 			item := m.items[m.cursor]
 			if !item.isFile() {
@@ -200,7 +258,7 @@ func (m model) handleNormalKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
-	case "a":
+	case key.Matches(msg, m.keys.Stale):
 		if len(m.selected) > 0 {
 			m.selected = make(map[int]bool)
 		} else {
@@ -211,7 +269,7 @@ func (m model) handleNormalKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
-	case "e":
+	case key.Matches(msg, m.keys.Expand):
 		if len(m.items) > 0 {
 			wtIdx := m.items[m.cursor].wtIndex
 			if m.expanded[wtIdx] {
@@ -222,10 +280,10 @@ func (m model) handleNormalKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.rebuildItems()
 		}
 		return m, nil
-	case "d":
+	case key.Matches(msg, m.keys.Delete):
 		m.startDelete(false)
 		return m, nil
-	case "D":
+	case key.Matches(msg, m.keys.ForceDelete):
 		m.startDelete(true)
 		return m, nil
 	}
@@ -442,6 +500,12 @@ func (m model) View() tea.View {
 }
 
 func (m *model) renderFull() string {
+	if m.showHelp {
+		m.help.ShowAll = true
+		m.help.SetWidth(m.width)
+		return headerStyle.Render(" Keys") + "\n\n" + m.help.View(m.keys)
+	}
+
 	var b strings.Builder
 
 	var searchLine string
@@ -483,7 +547,7 @@ func (m *model) renderFull() string {
 	if m.searching {
 		b.WriteString(dimStyle.Render("type to filter  enter/esc accept  q clear+quit") + "\n")
 	} else {
-		b.WriteString(dimStyle.Render("j/k move  alt+j/k scroll  space sel  a toggle stale  e expand  d/D del  / search  q quit") + "\n")
+		b.WriteString(dimStyle.Render("j/k move  ctrl+j/k too  alt+j/k scroll  space sel  a stale  e expand  d/D del  / search  ? keys  q quit") + "\n")
 	}
 
 	if m.confirmMsg != "" {
