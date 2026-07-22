@@ -64,6 +64,7 @@ type model struct {
 	staleCount   int
 	keys         keyMap
 	help         help.Model
+	showHelp     bool
 }
 
 type keyMap struct {
@@ -182,22 +183,18 @@ func (m model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	if m.showHelp {
+		m.showHelp = false // any key closes the overlay
+		return m, nil
+	}
+
 	if m.searching {
 		return m.handleSearchKey(msg)
 	}
 	return m.handleNormalKey(msg)
 }
 
-// ensureKeys lazily defaults m.keys for callers (e.g. tests) that build a
-// model literal directly without going through Run.
-func (m *model) ensureKeys() {
-	if m.keys.Up.Keys() == nil {
-		m.keys = defaultKeys()
-	}
-}
-
 func (m model) handleSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	m.ensureKeys()
 	switch {
 	case key.Matches(msg, m.keys.ForceQuit):
 		return m, tea.Quit
@@ -223,7 +220,6 @@ func (m model) handleSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) handleNormalKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	m.ensureKeys()
 	switch {
 	case key.Matches(msg, m.keys.ForceQuit):
 		return m, tea.Quit
@@ -234,6 +230,9 @@ func (m model) handleNormalKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, m.ensureLoaded()
 		}
 		return m, tea.Quit
+	case key.Matches(msg, m.keys.Help):
+		m.showHelp = true
+		return m, nil
 	case key.Matches(msg, m.keys.Search):
 		m.searching = true
 		return m, nil
@@ -501,6 +500,11 @@ func (m model) View() tea.View {
 }
 
 func (m *model) renderFull() string {
+	if m.showHelp {
+		m.help.ShowAll = true
+		return headerStyle.Render(" Keys") + "\n\n" + m.help.View(m.keys)
+	}
+
 	var b strings.Builder
 
 	var searchLine string

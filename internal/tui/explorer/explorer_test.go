@@ -1,8 +1,10 @@
 package explorer
 
 import (
+	"strings"
 	"testing"
 
+	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 
@@ -25,6 +27,8 @@ func newTestModel(t *testing.T) model {
 		width:     120,
 		height:    30,
 		ready:     true,
+		keys:      defaultKeys(),
+		help:      help.New(),
 	}
 	m.rebuildItems()
 	m.recomputeStaleCount()
@@ -216,5 +220,21 @@ func TestCtrlJKMovesCursor(t *testing.T) {
 	m = drive(m, "ctrl+k")
 	if m.cursor != 0 {
 		t.Fatalf("ctrl+k should move cursor up, got %d", m.cursor)
+	}
+}
+
+func TestHelpOverlayTogglesAndListsKeys(t *testing.T) {
+	m := newTestModel(t)
+	m = drive(m, "?")
+	if !m.showHelp {
+		t.Fatal("? should open the help overlay")
+	}
+	out := m.renderFull()
+	if !strings.Contains(out, "delete") || !strings.Contains(out, "scroll") {
+		t.Fatalf("help overlay should document the keys: %q", out)
+	}
+	m = drive(m, "?")
+	if m.showHelp {
+		t.Fatal("? should close the help overlay")
 	}
 }
