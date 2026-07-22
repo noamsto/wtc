@@ -80,7 +80,7 @@ WTC_POPUP_HEIGHT    Popup height (default 90%; any `display-popup -h` value)
 
 ## Worktree layout
 
-Worktrees are expected under `.worktrees/<branch-name>` relative to the repo root (the default for [worktrunk](https://worktrunk.dev/)).
+`wtc` discovers worktrees from `git worktree list`, so any layout works — nested (`<repo>/.worktrees/<branch>`), sibling (`<repo>-worktrees/<branch>`), or a shared external root (`<root>/.worktrees/<org>/<repo>/<branch>`), including [worktrunk](https://worktrunk.dev/)'s.
 
 ## License
 
