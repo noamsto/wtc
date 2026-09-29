@@ -767,7 +767,7 @@ func (m *model) renderFileDiffPreview(item listItem) string {
 		return b.String()
 	}
 
-	for _, line := range strings.Split(diff, "\n") {
+	for line := range strings.SplitSeq(diff, "\n") {
 		switch {
 		case strings.HasPrefix(line, "+++"), strings.HasPrefix(line, "---"):
 			b.WriteString(dimStyle.Render("  "+line) + "\n")
