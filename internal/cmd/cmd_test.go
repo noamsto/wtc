@@ -25,7 +25,7 @@ func testRepo(t *testing.T) string {
 
 func gitRun(t *testing.T, dir string, args ...string) {
 	t.Helper()
-	cmd := exec.Command("git", args...) //nolint:gosec // fixed git binary; test-supplied args are a discrete argv element, not shell-interpreted
+	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(),
 		"GIT_AUTHOR_NAME=Test",
