@@ -37,7 +37,7 @@ func ReExecInPopup(args ...string) error {
 	popupArgs := []string{"tmux", "display-popup", "-EE", "-d", cwd, "-w", width, "-h", height, self}
 	popupArgs = append(popupArgs, args...)
 
-	return syscall.Exec(tmuxPath, popupArgs, os.Environ())
+	return syscall.Exec(tmuxPath, popupArgs, os.Environ()) //nolint:gosec // tmuxPath comes from exec.LookPath("tmux"); args are a discrete argv, not shell-interpreted
 }
 
 func envOr(key, fallback string) string {

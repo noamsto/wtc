@@ -15,7 +15,9 @@ func testRepo(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	repo := filepath.Join(dir, "repo")
-	os.MkdirAll(repo, 0o755)
+	if err := os.MkdirAll(repo, 0o750); err != nil {
+		t.Fatal(err)
+	}
 	gitRun(t, repo, "init", "-b", "main")
 	gitRun(t, repo, "commit", "--allow-empty", "-m", "init")
 	return repo
@@ -23,7 +25,7 @@ func testRepo(t *testing.T) string {
 
 func gitRun(t *testing.T, dir string, args ...string) {
 	t.Helper()
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command("git", args...) //nolint:gosec // fixed git binary; test-supplied args are discrete argv elements, not shell-interpreted
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(),
 		"GIT_AUTHOR_NAME=Test",

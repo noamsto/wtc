@@ -33,7 +33,7 @@ func RepoRoot() (string, error) {
 // DefaultBranch detects whether the repo uses "main" or "master".
 func DefaultBranch(repoRoot string) (string, error) {
 	for _, branch := range []string{"main", "master"} {
-		if exec.Command("git", "-C", repoRoot, "show-ref", "--verify", "--quiet", "refs/heads/"+branch).Run() == nil {
+		if exec.Command("git", "-C", repoRoot, "show-ref", "--verify", "--quiet", "refs/heads/"+branch).Run() == nil { //nolint:gosec // fixed git binary; branch (main|master literal) is a discrete argv element, not shell-interpreted
 			return branch, nil
 		}
 	}

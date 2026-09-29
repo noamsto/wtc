@@ -27,7 +27,7 @@ func (w *Worktree) IsStale() bool {
 
 // ListWorktrees returns all worktrees excluding the repo root and default branch.
 func ListWorktrees(repoRoot, defaultBranch string) ([]Worktree, error) {
-	out, err := exec.Command("git", "-C", repoRoot, "worktree", "list", "--porcelain").Output()
+	out, err := exec.Command("git", "-C", repoRoot, "worktree", "list", "--porcelain").Output() //nolint:gosec // fixed git binary; repoRoot are discrete argv elements, not shell-interpreted
 	if err != nil {
 		return nil, fmt.Errorf("git worktree list: %w", err)
 	}
@@ -36,7 +36,7 @@ func ListWorktrees(repoRoot, defaultBranch string) ([]Worktree, error) {
 
 // ParseWorktreesPorcelain parses `git worktree list --porcelain` output.
 func ParseWorktreesPorcelain(output, repoRoot, defaultBranch string) []Worktree {
-	var worktrees []Worktree
+	worktrees := []Worktree{}
 	var currentPath string
 
 	for line := range strings.SplitSeq(output, "\n") {
@@ -66,7 +66,7 @@ func RemoveWorktree(repoRoot, path string, force bool) error {
 		args = append(args, "--force")
 	}
 	args = append(args, path)
-	out, err := exec.Command("git", args...).CombinedOutput()
+	out, err := exec.Command("git", args...).CombinedOutput() //nolint:gosec // fixed git binary; args are discrete argv elements, not shell-interpreted
 	if err != nil {
 		return fmt.Errorf("%s", strings.TrimSpace(string(out)))
 	}
@@ -75,14 +75,14 @@ func RemoveWorktree(repoRoot, path string, force bool) error {
 
 // PruneWorktrees removes stale worktree references.
 func PruneWorktrees(repoRoot string) error {
-	return exec.Command("git", "-C", repoRoot, "worktree", "prune").Run()
+	return exec.Command("git", "-C", repoRoot, "worktree", "prune").Run() //nolint:gosec // fixed git binary; repoRoot are discrete argv elements, not shell-interpreted
 }
 
 // FetchPrune runs git fetch --prune with a 30s timeout.
 func FetchPrune(repoRoot string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "git", "-C", repoRoot, "fetch", "--prune")
+	cmd := exec.CommandContext(ctx, "git", "-C", repoRoot, "fetch", "--prune") //nolint:gosec // fixed git binary; repoRoot are discrete argv elements, not shell-interpreted
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	return cmd.Run()

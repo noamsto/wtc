@@ -343,7 +343,7 @@ func diffCacheKey(wtPath, fileName string) string {
 }
 
 func (m *model) rebuildItems() {
-	m.items = m.items[:0]
+	m.items = make([]listItem, 0, len(m.items))
 	q := strings.ToLower(m.query)
 	for i, wt := range m.worktrees {
 		if q != "" && !strings.Contains(strings.ToLower(wt.Branch), q) {
@@ -419,7 +419,7 @@ func (m *model) executeDelete() {
 	}
 
 	if removed > 0 {
-		var newWorktrees []git.Worktree
+		newWorktrees := make([]git.Worktree, 0, len(m.worktrees))
 		indexMap := make(map[int]int)
 		for i, wt := range m.worktrees {
 			if !removedSet[i] {
@@ -797,11 +797,10 @@ func truncateToWidth(s string, width int) string {
 	if lipgloss.Width(s) <= width {
 		return s
 	}
-	runes := []rune(s)
 	var result []rune
 	visW := 0
 	inEscape := false
-	for _, r := range runes {
+	for _, r := range s {
 		if r == '\x1b' {
 			inEscape = true
 			result = append(result, r)
