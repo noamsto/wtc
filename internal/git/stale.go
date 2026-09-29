@@ -25,7 +25,7 @@ func ParseBranchList(output string) map[string]bool {
 // merged branches and deleted remote branches.
 func DetectStale(repoRoot, defaultBranch string, worktrees []Worktree) {
 	// Strategy 1: git branch --merged
-	out, err := exec.Command("git", "-C", repoRoot, "branch", "--merged", defaultBranch).Output()
+	out, err := exec.Command("git", "-C", repoRoot, "branch", "--merged", defaultBranch).Output() //nolint:gosec // fixed git binary; defaultBranch is a discrete argv element, not shell-interpreted
 	if err == nil {
 		merged := ParseBranchList(string(out))
 		for i := range worktrees {
@@ -36,14 +36,14 @@ func DetectStale(repoRoot, defaultBranch string, worktrees []Worktree) {
 	}
 
 	// Strategy 2: remote branch deleted (only when origin remote exists)
-	hasOrigin := exec.Command("git", "-C", repoRoot, "remote", "get-url", "origin").Run() == nil
+	hasOrigin := exec.Command("git", "-C", repoRoot, "remote", "get-url", "origin").Run() == nil //nolint:gosec // fixed git binary; repoRoot is a discrete argv element, not shell-interpreted
 	if hasOrigin {
 		for i := range worktrees {
 			if worktrees[i].IsStale() {
 				continue
 			}
 			ref := "refs/remotes/origin/" + worktrees[i].Branch
-			if exec.Command("git", "-C", repoRoot, "show-ref", "--verify", "--quiet", ref).Run() != nil {
+			if exec.Command("git", "-C", repoRoot, "show-ref", "--verify", "--quiet", ref).Run() != nil { //nolint:gosec // fixed git binary; ref is a discrete argv element, not shell-interpreted
 				worktrees[i].StaleReason = "remote branch deleted"
 			}
 		}
@@ -82,7 +82,7 @@ func DetectStaleGh(repoRoot string, worktrees []Worktree) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			cmd := exec.Command(ghPath, "pr", "list",
+			cmd := exec.Command(ghPath, "pr", "list", //nolint:gosec // fixed gh (from LookPath) binary; the branch name is a discrete argv element, not shell-interpreted
 				"--head", worktrees[i].Branch,
 				"--state", "merged",
 				"--json", "number",

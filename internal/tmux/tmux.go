@@ -22,7 +22,7 @@ func (c *Client) FindWindowByWorktree(session, worktreePath string) string {
 		return ""
 	}
 
-	out, err := exec.Command("tmux", "list-windows", "-t", session,
+	out, err := exec.Command("tmux", "list-windows", "-t", session, //nolint:gosec // fixed tmux binary; session is a discrete argv element
 		"-F", "#{window_index}\t#{@worktree}\t#{pane_current_path}").Output()
 	if err != nil {
 		return ""
@@ -51,10 +51,10 @@ func (c *Client) KillWindow(repoRoot, worktreePath string) {
 	}
 	windowIdx := c.FindWindowByWorktree(sessionName, worktreePath)
 	if windowIdx != "" {
-		_ = exec.Command("tmux", "kill-window", "-t", sessionName+":"+windowIdx).Run()
+		_ = exec.Command("tmux", "kill-window", "-t", sessionName+":"+windowIdx).Run() //nolint:gosec // fixed tmux binary; target is a discrete argv element
 	}
 }
 
 func hasSession(name string) bool {
-	return exec.Command("tmux", "has-session", "-t", name).Run() == nil
+	return exec.Command("tmux", "has-session", "-t", name).Run() == nil //nolint:gosec // fixed tmux binary; name is a discrete argv element
 }
