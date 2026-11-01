@@ -19,7 +19,7 @@
           pname = "wtc";
           version = "0.1.0";
           src = ./.;
-          vendorHash = "sha256-/ECdAn+ov02/S9SHR8ywP8IORDuUYPtEGEwTwhRn2IE=";
+          vendorHash = "sha256-17X+vSBrTnlex042XdBhGfrSOIzL47Qnw43YaE+Sa+I=";
           ldflags = ["-s" "-w"];
           subPackages = ["cmd/wtc"];
           meta = {
