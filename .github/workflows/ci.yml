@@ -11,9 +11,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: cachix/install-nix-action@v31
+      # PR runs pull only: PR code must not publish into the cache users substitute from.
       - uses: cachix/cachix-action@v17
         with:
           name: wtc
-          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+          authToken: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.CACHIX_AUTH_TOKEN || '' }}
+          skipPush: ${{ !(github.event_name == 'push' && github.ref == 'refs/heads/main') }}
       - run: nix build .
       - run: nix flake check
