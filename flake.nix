@@ -35,7 +35,7 @@
           pname = "wtc";
           version = "0.1.0";
           src = ./.;
-          vendorHash = "sha256-edt6XOrcaUu0elWKojQyC6aEPSkgb/YdInV64Bucz4Q=";
+          vendorHash = "sha256-6yVgZr3+5bPP5AuMmudMl25eUzlLGJorQ7M+4jpy+hY=";
           ldflags = ["-s" "-w"];
           subPackages = ["cmd/wtc"];
           meta = {
